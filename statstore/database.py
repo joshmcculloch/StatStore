@@ -18,6 +18,13 @@ class SQL_DB(object):
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor)
 
+    def series_exists(self,name):
+        with self.connection.cursor() as cursor:
+            sql = "SELECT count(*) as 'count' FROM `series` WHERE `name`=%s"
+            cursor.execute(sql, (name))
+            result = cursor.fetchone()
+            return result["count"] == 1
+
     def create_series(self, name, comment=""):
         with self.connection.cursor() as cursor:
             sql = "INSERT INTO `series` (`name`, `comment`) VALUES (%s, %s)"
@@ -33,9 +40,10 @@ class SQL_DB(object):
             return result["id"]
 
     def push_value(self, series, datetime, value):
-        if isinstance(series, str):
-            series = self.get_series_id(series)
+        if not self.series_exists(series):
+            self.create_series(series)
+        series_id = self.get_series_id(series)
         with self.connection.cursor() as cursor:
             sql = "INSERT INTO `data` (`datetime`, `series`, `value`) VALUES (%s, %s, %s)"
-            cursor.execute(sql, (datetime, series, value))
+            cursor.execute(sql, (datetime, series_id, value))
         self.connection.commit()
